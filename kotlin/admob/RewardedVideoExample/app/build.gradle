@@ -4,12 +4,12 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace 'com.google.android.gms.example.rewardedvideoexample'
-    compileSdkVersion 34
+    compileSdk 34
     defaultConfig {
         applicationId "com.google.android.gms.example.rewardedvideoexample"
-        minSdkVersion 23
-        targetSdkVersion 34
-        multiDexEnabled true
+        minSdk 23
+        targetSdk 34
+       // multiDexEnabled true
         versionCode 1
         versionName "1.0"
     }
@@ -24,11 +24,11 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '17'
     }
 }
 

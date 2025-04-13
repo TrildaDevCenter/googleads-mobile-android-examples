@@ -30,7 +30,9 @@ class MainActivity : AppCompatActivity() {
   private lateinit var binding: ActivityMainBinding
   private lateinit var googleMobileAdsConsentManager: GoogleMobileAdsConsentManager
   private var coinCount: Int = 0
+  private var canPlayGame = false;
   private var countdownTimer: CountDownTimer? = null
+  private var playingGame = false
   private var gameOver = false
   private var gamePaused = false
   private var isLoading = false
@@ -52,8 +54,6 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "${error.errorCode}: ${error.message}")
       }
 
-      startGame()
-
       if (googleMobileAdsConsentManager.canRequestAds) {
         initializeMobileAdsSdk()
       }
@@ -62,6 +62,8 @@ class MainActivity : AppCompatActivity() {
         // Regenerate the options menu to include a privacy setting.
         invalidateOptionsMenu()
       }
+
+      updateUI()
     }
 
     // This sample attempts to load ads using consent obtained in the previous session.
@@ -70,8 +72,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Create the "retry" button, which tries to show a rewarded video ad between game plays.
-    binding.retryButton.visibility = View.INVISIBLE
-    binding.retryButton.setOnClickListener {
+    binding.playGameButton.visibility = View.INVISIBLE
+    binding.playGameButton.setOnClickListener {
       startGame()
       if (!isLoading && googleMobileAdsConsentManager.canRequestAds) {
         loadRewardedAd()
@@ -79,13 +81,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Create the "show" button, which shows a rewarded video if one is loaded.
-    binding.showVideoButton.visibility = View.INVISIBLE
-    binding.showVideoButton.setOnClickListener { showRewardedVideo() }
+    //binding.showVideoButton.visibility = View.INVISIBLE
+    binding.showVideoButton.setOnClickListener {
+      showRewardedVideo()
+    }
 
-    // Display current coin count to user.
-    binding.coinCountText.text = "Coins: $coinCount"
-
-    startGame()
+    updateUI()
   }
 
   public override fun onPause() {
@@ -146,14 +147,18 @@ class MainActivity : AppCompatActivity() {
     }
     countdownTimer?.cancel()
     gamePaused = true
+
+    updateUI()
   }
 
   private fun resumeGame() {
     if (gameOver || !gamePaused) {
       return
     }
-    createTimer(timeRemaining)
+    PlayGameSimulationTimer(timeRemaining)
     gamePaused = false
+
+    updateUI()
   }
 
   private fun loadRewardedAd() {
@@ -182,24 +187,51 @@ class MainActivity : AppCompatActivity() {
     }
   }
 
+  private fun updateUI() {
+    binding.coinCountText.text = "Coins: $coinCount"
+
+    canPlayGame = if (coinCount >= GAME_PLAY_COST) true else false
+    binding.playGameButton.visibility = if (canPlayGame == true) (View.VISIBLE) else View.INVISIBLE
+    binding.showVideoButton.visibility = View.VISIBLE
+
+    if (playingGame == true) {
+      binding.gameTitle.text = getString(R.string.playing_game)
+    }
+    else {
+      binding.gameTitle.text = if (canPlayGame) (getString(R.string.possible_game)) else (getString(R.string.impossible_game))
+    }
+  }
+
   private fun addCoins(coins: Int) {
     coinCount += coins
-    binding.coinCountText.text = "Coins: $coinCount"
+    updateUI()
+  }
+
+  private fun consumeCoins(coins: Int) {
+    coinCount -= coins
+    updateUI()
   }
 
   private fun startGame() {
-    // Hide the retry button, load the ad, and start the timer.
-    binding.retryButton.visibility = View.INVISIBLE
-    binding.showVideoButton.visibility = View.INVISIBLE
-    createTimer(COUNTER_TIME)
-    gamePaused = false
-    gameOver = false
+    updateUI()
+
+    if (canPlayGame) {
+      consumeCoins(GAME_PLAY_COST)
+
+      gamePaused = false
+      gameOver = false
+
+      PlayGameSimulationTimer(COUNTER_TIME)
+    }
   }
 
   // Create the game timer, which counts down to the end of the level
   // and shows the "retry" button.
-  private fun createTimer(time: Long) {
+  private fun PlayGameSimulationTimer(time: Long) {
     countdownTimer?.cancel()
+
+    playingGame = true
+    updateUI()
 
     countdownTimer =
       object : CountDownTimer(time * 1000, 50) {
@@ -211,9 +243,12 @@ class MainActivity : AppCompatActivity() {
         override fun onFinish() {
           binding.showVideoButton.visibility = View.VISIBLE
           binding.timer.text = "The game has ended!"
+
           addCoins(GAME_OVER_REWARD)
-          binding.retryButton.visibility = View.VISIBLE
+
+          playingGame = false
           gameOver = true
+
         }
       }
 
@@ -254,8 +289,11 @@ class MainActivity : AppCompatActivity() {
           // Handle the reward.
           val rewardAmount = rewardItem.amount
           val rewardType = rewardItem.type
+
           addCoins(rewardAmount)
           Log.d("TAG", "User earned the reward.")
+
+          updateUI()
         },
       )
     }
@@ -286,6 +324,7 @@ class MainActivity : AppCompatActivity() {
     private const val AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
     private const val COUNTER_TIME = 10L
     private const val GAME_OVER_REWARD = 1
+    private const val GAME_PLAY_COST = 5
     private const val TAG = "MainActivity"
 
     // Check your logcat output for the test device hashed ID e.g.
