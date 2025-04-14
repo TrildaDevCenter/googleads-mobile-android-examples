@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
   private var canPlayGame = false;
   private var countdownTimer: CountDownTimer? = null
   private var playingGame = false
-  private var gameOver = false
+  private var gameOver = true
   private var gamePaused = false
   private var isLoading = false
   private var rewardedAd: RewardedAd? = null
@@ -164,23 +164,25 @@ class MainActivity : AppCompatActivity() {
   private fun loadRewardedAd() {
     if (rewardedAd == null) {
       isLoading = true
-      var adRequest = AdRequest.Builder().build()
 
       RewardedAd.load(
         this,
         AD_UNIT_ID,
-        adRequest,
+        AdRequest.Builder().build(),
         object : RewardedAdLoadCallback() {
+
+          override fun onAdLoaded(ad: RewardedAd) {
+            Log.d(TAG, "REWARDED ADD WAS LOADED.")
+            rewardedAd = ad
+            isLoading = false
+          }
+
           override fun onAdFailedToLoad(adError: LoadAdError) {
+            Log.d(TAG, "REWARDED ADD WAS NOT LOADED.")
+
             Log.d(TAG, adError.message)
             isLoading = false
             rewardedAd = null
-          }
-
-          override fun onAdLoaded(ad: RewardedAd) {
-            Log.d(TAG, "Ad was loaded.")
-            rewardedAd = ad
-            isLoading = false
           }
         },
       )
@@ -244,7 +246,10 @@ class MainActivity : AppCompatActivity() {
           binding.showVideoButton.visibility = View.VISIBLE
           binding.timer.text = "The game has ended!"
 
-          addCoins(GAME_OVER_REWARD)
+          if (timeRemaining == 1L) {
+            addCoins(GAME_OVER_REWARD)
+          }
+          else  updateUI()
 
           playingGame = false
           gameOver = true
@@ -256,12 +261,28 @@ class MainActivity : AppCompatActivity() {
   }
 
   private fun showRewardedVideo() {
-    binding.showVideoButton.visibility = View.INVISIBLE
+    if (rewardedAd == null) {
+      Log.d(TAG, "showRewardedVideo, Ad was not actually loaded.")
+
+      if (isLoading){
+        Log.d(TAG, "showRewardedVideo, ad is currently loading.")
+      }
+
+      if (!isLoading && googleMobileAdsConsentManager.canRequestAds) {
+        Log.d(TAG, "showRewardedVideo, try to reload it.")
+        loadRewardedAd()
+      }
+    }
+
     if (rewardedAd != null) {
+      Log.d(TAG, "showRewardedVideo, ad was loadded")
+
+      binding.showVideoButton.visibility = View.INVISIBLE
+
       rewardedAd?.fullScreenContentCallback =
         object : FullScreenContentCallback() {
           override fun onAdDismissedFullScreenContent() {
-            Log.d(TAG, "Ad was dismissed.")
+            Log.d(TAG, "FullScreenContentCallback, Ad was dismissed.")
             // Don't forget to set the ad reference to null so you
             // don't show the ad a second time.
             rewardedAd = null
@@ -271,14 +292,14 @@ class MainActivity : AppCompatActivity() {
           }
 
           override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-            Log.d(TAG, "Ad failed to show.")
+            Log.d(TAG, "FullScreenContentCallback, Ad failed to show.")
             // Don't forget to set the ad reference to null so you
             // don't show the ad a second time.
             rewardedAd = null
           }
 
           override fun onAdShowedFullScreenContent() {
-            Log.d(TAG, "Ad showed fullscreen content.")
+            Log.d(TAG, "FullScreenContentCallback, Ad showed fullscreen content.")
             // Called when ad is dismissed.
           }
         }
@@ -291,9 +312,7 @@ class MainActivity : AppCompatActivity() {
           val rewardType = rewardItem.type
 
           addCoins(rewardAmount)
-          Log.d("TAG", "User earned the reward.")
-
-          updateUI()
+          Log.d("TAG", "FullScreenContentCallback, User earned the reward.")
         },
       )
     }
@@ -309,7 +328,8 @@ class MainActivity : AppCompatActivity() {
       RequestConfiguration.Builder().setTestDeviceIds(listOf(TEST_DEVICE_HASHED_ID)).build()
     )
 
-    CoroutineScope(Dispatchers.IO).launch {
+    val backgroundScope = CoroutineScope(Dispatchers.IO)
+    backgroundScope.launch {
       // Initialize the Google Mobile Ads SDK on a background thread.
       MobileAds.initialize(this@MainActivity) {}
       runOnUiThread {
