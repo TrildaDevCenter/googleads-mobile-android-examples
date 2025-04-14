@@ -275,7 +275,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     if (rewardedAd != null) {
-      Log.d(TAG, "showRewardedVideo, ad was loadded")
+      Log.d(TAG, "showRewardedVideo, ad was loaded")
 
       binding.showVideoButton.visibility = View.INVISIBLE
 
